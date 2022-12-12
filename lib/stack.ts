@@ -17,7 +17,7 @@ export class MainStack extends cdk.Stack {
       itemsImagesBucket: storage.processedItemsBucket,
     });
     const network = new Network(this, "network", {
-      createItemHandler: compute.api,
+      itemsQeue: queues.processingQueue,
     });
 
     // The code that defines your stack goes here
