@@ -1,0 +1,515 @@
+Resources:
+  ProcessItemsBucket2827216B:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: processed-items-bucket
+      Tags:
+        - Key: aws-cdk:auto-delete-objects
+          Value: "true"
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+    Metadata:
+      aws:cdk:path: MainStack/ProcessItemsBucket/Resource
+  ProcessItemsBucketPolicy8756C366:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket:
+        Ref: ProcessItemsBucket2827216B
+      PolicyDocument:
+        Statement:
+          - Action:
+              - s3:DeleteObject*
+              - s3:GetBucket*
+              - s3:List*
+            Effect: Allow
+            Principal:
+              AWS:
+                Fn::GetAtt:
+                  - CustomS3AutoDeleteObjectsCustomResourceProviderRole3B1BD092
+                  - Arn
+            Resource:
+              - Fn::GetAtt:
+                  - ProcessItemsBucket2827216B
+                  - Arn
+              - Fn::Join:
+                  - ""
+                  - - Fn::GetAtt:
+                        - ProcessItemsBucket2827216B
+                        - Arn
+                    - /*
+        Version: "2012-10-17"
+    Metadata:
+      aws:cdk:path: MainStack/ProcessItemsBucket/Policy/Resource
+  ProcessItemsBucketAutoDeleteObjectsCustomResource23B65B09:
+    Type: Custom::S3AutoDeleteObjects
+    Properties:
+      ServiceToken:
+        Fn::GetAtt:
+          - CustomS3AutoDeleteObjectsCustomResourceProviderHandler9D90184F
+          - Arn
+      BucketName:
+        Ref: ProcessItemsBucket2827216B
+    DependsOn:
+      - ProcessItemsBucketPolicy8756C366
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+    Metadata:
+      aws:cdk:path: MainStack/ProcessItemsBucket/AutoDeleteObjectsCustomResource/Default
+  CustomS3AutoDeleteObjectsCustomResourceProviderRole3B1BD092:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+      ManagedPolicyArns:
+        - Fn::Sub: arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+    Metadata:
+      aws:cdk:path: MainStack/Custom::S3AutoDeleteObjectsCustomResourceProvider/Role
+  CustomS3AutoDeleteObjectsCustomResourceProviderHandler9D90184F:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        S3Bucket:
+          Fn::Sub: cdk-hnb659fds-assets-${AWS::AccountId}-us-east-1
+        S3Key: 3f51abb709b8e65167a45aeed02bab11540603d909005d7148230ba5ce6c74d7.zip
+      Timeout: 900
+      MemorySize: 128
+      Handler: __entrypoint__.handler
+      Role:
+        Fn::GetAtt:
+          - CustomS3AutoDeleteObjectsCustomResourceProviderRole3B1BD092
+          - Arn
+      Runtime: nodejs14.x
+      Description:
+        Fn::Join:
+          - ""
+          - - "Lambda function for auto-deleting objects in "
+            - Ref: ProcessItemsBucket2827216B
+            - " S3 bucket."
+    DependsOn:
+      - CustomS3AutoDeleteObjectsCustomResourceProviderRole3B1BD092
+    Metadata:
+      aws:cdk:path: MainStack/Custom::S3AutoDeleteObjectsCustomResourceProvider/Handler
+      aws:asset:path: asset.3f51abb709b8e65167a45aeed02bab11540603d909005d7148230ba5ce6c74d7
+      aws:asset:property: Code
+  itemsTable612CA381:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+        - AttributeName: fetchdate
+          KeyType: RANGE
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+        - AttributeName: fetchdate
+          AttributeType: S
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
+      TableName: items-table
+    UpdateReplacePolicy: Retain
+    DeletionPolicy: Retain
+    Metadata:
+      aws:cdk:path: MainStack/itemsTable/Resource
+  processingQueueDLQ80D0BA6B:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: processing-queue-dlq
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+    Metadata:
+      aws:cdk:path: MainStack/processingQueueDLQ/Resource
+  processingQueue8EBFBB8C:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: processing-queue
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+    Metadata:
+      aws:cdk:path: MainStack/processingQueue/Resource
+  computefetchServiceRole6C0F9EB9:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+        Version: "2012-10-17"
+      ManagedPolicyArns:
+        - Fn::Join:
+            - ""
+            - - "arn:"
+              - Ref: AWS::Partition
+              - :iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+    Metadata:
+      aws:cdk:path: MainStack/compute/fetch/ServiceRole/Resource
+  computefetchServiceRoleDefaultPolicy0763F367:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - s3:Abort*
+              - s3:DeleteObject*
+              - s3:PutObject
+              - s3:PutObjectLegalHold
+              - s3:PutObjectRetention
+              - s3:PutObjectTagging
+              - s3:PutObjectVersionTagging
+            Effect: Allow
+            Resource:
+              - Fn::GetAtt:
+                  - ProcessItemsBucket2827216B
+                  - Arn
+              - Fn::Join:
+                  - ""
+                  - - Fn::GetAtt:
+                        - ProcessItemsBucket2827216B
+                        - Arn
+                    - /*
+          - Action:
+              - sqs:ChangeMessageVisibility
+              - sqs:DeleteMessage
+              - sqs:GetQueueAttributes
+              - sqs:GetQueueUrl
+              - sqs:ReceiveMessage
+            Effect: Allow
+            Resource:
+              Fn::GetAtt:
+                - processingQueue8EBFBB8C
+                - Arn
+          - Action:
+              - dynamodb:BatchWriteItem
+              - dynamodb:DeleteItem
+              - dynamodb:DescribeTable
+              - dynamodb:PutItem
+              - dynamodb:UpdateItem
+            Effect: Allow
+            Resource:
+              - Fn::GetAtt:
+                  - itemsTable612CA381
+                  - Arn
+              - Ref: AWS::NoValue
+        Version: "2012-10-17"
+      PolicyName: computefetchServiceRoleDefaultPolicy0763F367
+      Roles:
+        - Ref: computefetchServiceRole6C0F9EB9
+    Metadata:
+      aws:cdk:path: MainStack/compute/fetch/ServiceRole/DefaultPolicy/Resource
+  computefetch3FAF68D0:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        S3Bucket:
+          Fn::Sub: cdk-hnb659fds-assets-${AWS::AccountId}-us-east-1
+        S3Key: f73427a8fa6ec90876b2ff57869cae47d99c7baca7d4d4621b813981124f8898.zip
+      Role:
+        Fn::GetAtt:
+          - computefetchServiceRole6C0F9EB9
+          - Arn
+      Environment:
+        Variables:
+          AWS_NODEJS_CONNECTION_REUSE_ENABLED: "1"
+      Handler: index.handler
+      MemorySize: 512
+      Runtime: nodejs18.x
+    DependsOn:
+      - computefetchServiceRoleDefaultPolicy0763F367
+      - computefetchServiceRole6C0F9EB9
+    Metadata:
+      aws:cdk:path: MainStack/compute/fetch/Resource
+      aws:asset:path: asset.f73427a8fa6ec90876b2ff57869cae47d99c7baca7d4d4621b813981124f8898
+      aws:asset:is-bundled: true
+      aws:asset:property: Code
+  computeapiServiceRole6C6C3F18:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+        Version: "2012-10-17"
+      ManagedPolicyArns:
+        - Fn::Join:
+            - ""
+            - - "arn:"
+              - Ref: AWS::Partition
+              - :iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+    Metadata:
+      aws:cdk:path: MainStack/compute/api/ServiceRole/Resource
+  computeapiServiceRoleDefaultPolicyFF8E74BA:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - sqs:GetQueueAttributes
+              - sqs:GetQueueUrl
+              - sqs:SendMessage
+            Effect: Allow
+            Resource:
+              Fn::GetAtt:
+                - processingQueue8EBFBB8C
+                - Arn
+          - Action:
+              - dynamodb:BatchGetItem
+              - dynamodb:ConditionCheckItem
+              - dynamodb:DescribeTable
+              - dynamodb:GetItem
+              - dynamodb:GetRecords
+              - dynamodb:GetShardIterator
+              - dynamodb:Query
+              - dynamodb:Scan
+            Effect: Allow
+            Resource:
+              - Fn::GetAtt:
+                  - itemsTable612CA381
+                  - Arn
+              - Ref: AWS::NoValue
+        Version: "2012-10-17"
+      PolicyName: computeapiServiceRoleDefaultPolicyFF8E74BA
+      Roles:
+        - Ref: computeapiServiceRole6C6C3F18
+    Metadata:
+      aws:cdk:path: MainStack/compute/api/ServiceRole/DefaultPolicy/Resource
+  computeapiC90644A0:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        S3Bucket:
+          Fn::Sub: cdk-hnb659fds-assets-${AWS::AccountId}-us-east-1
+        S3Key: 0e058f6336f79b69f1eab0f095314498825c6cc9cb3594fbdac99ceb8b2e35f5.zip
+      Role:
+        Fn::GetAtt:
+          - computeapiServiceRole6C6C3F18
+          - Arn
+      Environment:
+        Variables:
+          TARGET_QUEUE_NAME:
+            Fn::GetAtt:
+              - processingQueue8EBFBB8C
+              - QueueName
+          TARGET_TABLE_NAME:
+            Ref: itemsTable612CA381
+          AWS_NODEJS_CONNECTION_REUSE_ENABLED: "1"
+      Handler: index.handler
+      MemorySize: 512
+      Runtime: nodejs18.x
+    DependsOn:
+      - computeapiServiceRoleDefaultPolicyFF8E74BA
+      - computeapiServiceRole6C6C3F18
+    Metadata:
+      aws:cdk:path: MainStack/compute/api/Resource
+      aws:asset:path: asset.0e058f6336f79b69f1eab0f095314498825c6cc9cb3594fbdac99ceb8b2e35f5
+      aws:asset:is-bundled: true
+      aws:asset:property: Code
+  networkmainapi7ACD2EE8:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: main-api
+    Metadata:
+      aws:cdk:path: MainStack/network/main-api/Resource
+  networkmainapiDeploymentAF752DAB1697120b49d6e7bf55f889877f85228b:
+    Type: AWS::ApiGateway::Deployment
+    Properties:
+      RestApiId:
+        Ref: networkmainapi7ACD2EE8
+      Description: Automatically created by the RestApi construct
+    DependsOn:
+      - networkmainapiitemsGET1B507C8B
+      - networkmainapiitemsPOSTA8384E3D
+      - networkmainapiitems7CA3E15B
+    Metadata:
+      aws:cdk:path: MainStack/network/main-api/Deployment/Resource
+  networkmainapiDeploymentStageprod1A8F268E:
+    Type: AWS::ApiGateway::Stage
+    Properties:
+      RestApiId:
+        Ref: networkmainapi7ACD2EE8
+      DeploymentId:
+        Ref: networkmainapiDeploymentAF752DAB1697120b49d6e7bf55f889877f85228b
+      StageName: prod
+    Metadata:
+      aws:cdk:path: MainStack/network/main-api/DeploymentStage.prod/Resource
+  networkmainapiitems7CA3E15B:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      ParentId:
+        Fn::GetAtt:
+          - networkmainapi7ACD2EE8
+          - RootResourceId
+      PathPart: items
+      RestApiId:
+        Ref: networkmainapi7ACD2EE8
+    Metadata:
+      aws:cdk:path: MainStack/network/main-api/Default/items/Resource
+  ? networkmainapiitemsPOSTApiPermissionMainStacknetworkmainapi2E357FE7POSTitems20E1F463
+  : Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName:
+        Fn::GetAtt:
+          - computeapiC90644A0
+          - Arn
+      Principal: apigateway.amazonaws.com
+      SourceArn:
+        Fn::Join:
+          - ""
+          - - "arn:aws:execute-api:us-east-1:"
+            - Ref: AWS::AccountId
+            - ":"
+            - Ref: networkmainapi7ACD2EE8
+            - /
+            - Ref: networkmainapiDeploymentStageprod1A8F268E
+            - /POST/items
+    Metadata:
+      aws:cdk:path: MainStack/network/main-api/Default/items/POST/ApiPermission.MainStacknetworkmainapi2E357FE7.POST..items
+  ? networkmainapiitemsPOSTApiPermissionTestMainStacknetworkmainapi2E357FE7POSTitems476566E4
+  : Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName:
+        Fn::GetAtt:
+          - computeapiC90644A0
+          - Arn
+      Principal: apigateway.amazonaws.com
+      SourceArn:
+        Fn::Join:
+          - ""
+          - - "arn:aws:execute-api:us-east-1:"
+            - Ref: AWS::AccountId
+            - ":"
+            - Ref: networkmainapi7ACD2EE8
+            - /test-invoke-stage/POST/items
+    Metadata:
+      aws:cdk:path: MainStack/network/main-api/Default/items/POST/ApiPermission.Test.MainStacknetworkmainapi2E357FE7.POST..items
+  networkmainapiitemsPOSTA8384E3D:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      HttpMethod: POST
+      ResourceId:
+        Ref: networkmainapiitems7CA3E15B
+      RestApiId:
+        Ref: networkmainapi7ACD2EE8
+      AuthorizationType: NONE
+      Integration:
+        IntegrationHttpMethod: POST
+        Type: AWS_PROXY
+        Uri:
+          Fn::Join:
+            - ""
+            - - arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/
+              - Fn::GetAtt:
+                  - computeapiC90644A0
+                  - Arn
+              - /invocations
+    Metadata:
+      aws:cdk:path: MainStack/network/main-api/Default/items/POST/Resource
+  ? networkmainapiitemsGETApiPermissionMainStacknetworkmainapi2E357FE7GETitems2C6E372D
+  : Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName:
+        Fn::GetAtt:
+          - computeapiC90644A0
+          - Arn
+      Principal: apigateway.amazonaws.com
+      SourceArn:
+        Fn::Join:
+          - ""
+          - - "arn:aws:execute-api:us-east-1:"
+            - Ref: AWS::AccountId
+            - ":"
+            - Ref: networkmainapi7ACD2EE8
+            - /
+            - Ref: networkmainapiDeploymentStageprod1A8F268E
+            - /GET/items
+    Metadata:
+      aws:cdk:path: MainStack/network/main-api/Default/items/GET/ApiPermission.MainStacknetworkmainapi2E357FE7.GET..items
+  ? networkmainapiitemsGETApiPermissionTestMainStacknetworkmainapi2E357FE7GETitemsFC42468A
+  : Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName:
+        Fn::GetAtt:
+          - computeapiC90644A0
+          - Arn
+      Principal: apigateway.amazonaws.com
+      SourceArn:
+        Fn::Join:
+          - ""
+          - - "arn:aws:execute-api:us-east-1:"
+            - Ref: AWS::AccountId
+            - ":"
+            - Ref: networkmainapi7ACD2EE8
+            - /test-invoke-stage/GET/items
+    Metadata:
+      aws:cdk:path: MainStack/network/main-api/Default/items/GET/ApiPermission.Test.MainStacknetworkmainapi2E357FE7.GET..items
+  networkmainapiitemsGET1B507C8B:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      HttpMethod: GET
+      ResourceId:
+        Ref: networkmainapiitems7CA3E15B
+      RestApiId:
+        Ref: networkmainapi7ACD2EE8
+      AuthorizationType: NONE
+      Integration:
+        IntegrationHttpMethod: POST
+        Type: AWS_PROXY
+        Uri:
+          Fn::Join:
+            - ""
+            - - arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/
+              - Fn::GetAtt:
+                  - computeapiC90644A0
+                  - Arn
+              - /invocations
+    Metadata:
+      aws:cdk:path: MainStack/network/main-api/Default/items/GET/Resource
+  CDKMetadata:
+    Type: AWS::CDK::Metadata
+    Properties:
+      Analytics: v2:deflate64:H4sIAAAAAAAA/21Q204CMRD9Ft7LKKCJr4DxyQuuvpOyHbHstl13Wsim6b/bywYk8elcenJmOnO4v4PbCT/RtBbNtJU78B+W1w2L1tbTAvzK1Q1atv7SIyuwMa2sh4s96iJWnDAwMWiujIiVn3zXYspmEhj9EPh3hy6bmQTWcrUTfKuNwAPBa4Ynp2srjWaSK/CVKS0ZLwsUFlsXW06ElmCZYCwEHyPnnhTHXkmiqALjndxziyc+gH/O8QrJLjuZx4z0EbvWDAp1vsIfFS+1zwsVEvPG9TWm35/FWFT4C9pvI5JVWAhs7cga9W/6+mnTm6MU2LP8uTRR6v3VmDdnO2cDSxeEA90cZw8wm8NsciApp73TViqEquAvr5K1BPoBAAA=
+    Metadata:
+      aws:cdk:path: MainStack/CDKMetadata/Default
+Outputs:
+  networkmainapiEndpoint52693C33:
+    Value:
+      Fn::Join:
+        - ""
+        - - https://
+          - Ref: networkmainapi7ACD2EE8
+          - .execute-api.us-east-1.
+          - Ref: AWS::URLSuffix
+          - /
+          - Ref: networkmainapiDeploymentStageprod1A8F268E
+          - /
+Parameters:
+  BootstrapVersion:
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /cdk-bootstrap/hnb659fds/version
+    Description: Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]
+Rules:
+  CheckBootstrapVersion:
+    Assertions:
+      - Assert:
+          Fn::Not:
+            - Fn::Contains:
+                - - "1"
+                  - "2"
+                  - "3"
+                  - "4"
+                  - "5"
+                - Ref: BootstrapVersion
+        AssertDescription: CDK bootstrap stack version 6 required. Please run 'cdk bootstrap' with a recent version of the CDK CLI.

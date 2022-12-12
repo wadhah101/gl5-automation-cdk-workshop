@@ -19,6 +19,7 @@ export class MainStack extends cdk.Stack {
     const network = new Network(this, "network", {
       createItemHandler: compute.api,
     });
+
     // The code that defines your stack goes here
 
     // example resource

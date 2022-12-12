@@ -20,6 +20,7 @@ export class QueuesConstruct extends Construct {
     this.processingQueue = new cdk.aws_sqs.Queue(scope, "processingQueue", {
       queueName: "processing-queue",
       removalPolicy: cdk.RemovalPolicy.DESTROY,
+      deadLetterQueue: { maxReceiveCount: 1, queue: dlqprocessingQueue },
     });
   }
 }
