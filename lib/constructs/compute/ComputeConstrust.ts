@@ -25,7 +25,7 @@ export class Compute extends Construct {
       memorySize: 512,
       runtime: cdk.aws_lambda.Runtime.NODEJS_18_X,
       environment: {
-        TARGET_TABLE_NAME: props.itemsTable.tableName,
+        TARGET_QUEUE_NAME: props.itemsFetchQueue.queueName,
       },
       bundling: {
         externalModules: ["@aws-sdk"],
