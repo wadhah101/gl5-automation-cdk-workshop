@@ -10,12 +10,6 @@ export class StorageConstruct extends Construct {
   constructor(scope: Construct, id: string, props: Props) {
     super(scope, id);
 
-    this.scrapingBucket = new cdk.aws_s3.Bucket(scope, "ScrapeBucket", {
-      bucketName: "scraped-items-bucket",
-      autoDeleteObjects: true,
-      removalPolicy: cdk.RemovalPolicy.DESTROY,
-    });
-
     this.processedItemsBucket = new cdk.aws_s3.Bucket(
       scope,
       "ProcessItemsBucket",

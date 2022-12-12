@@ -1,3 +1,5 @@
+import { Network } from "./constructs/NetwrokConstruct";
+import { Compute } from "./constructs/compute/ComputeConstrust";
 import * as cdk from "aws-cdk-lib";
 import { Construct } from "constructs";
 import { QueuesConstruct } from "./constructs/QueuesConsturct";
@@ -9,7 +11,14 @@ export class MainStack extends cdk.Stack {
 
     const storage = new StorageConstruct(this, "storage", {});
     const queues = new QueuesConstruct(this, "queues", {});
-
+    const compute = new Compute(this, "compute", {
+      itemsTable: storage.itemsTable,
+      itemsFetchQueue: queues.processingQueue,
+      itemsImagesBucket: storage.processedItemsBucket,
+    });
+    const network = new Network(this, "network", {
+      createItemHandler: compute.api,
+    });
     // The code that defines your stack goes here
 
     // example resource
